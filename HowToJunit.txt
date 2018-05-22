@@ -1,0 +1,272 @@
+Reference Links:
+
+(This is work in progress. For anyone, new to unit testing, so that we can maintain quality code)
+Before starting this tutorial: Remember it is not difficult to write tests, the tricky part is writing testable code. - Misko Harvey, creator of Angular JS
+Introduction to Junits:
+Unit testing is testing your code at unit or class level.
+Suppose you have class A
+public class A
+public int B(O o)
+public void C(int id) throws CException
+In complete environment A fits like:
+A → AService → ADao → Database
+
+Each layer should be unit tested on its own. that is A is tested on its own by mocking other things it is dependent on.
+Why to unit test?
+Assure Quality, Run Fast, Regression Suite
+What is Tesing Frmwrk:
+An easy API to write tests
+A way to assert for the results
+Get test report
+In Junit4 you need to provide annotations in the test code, this makes code much more simpler as you can just write the test case by providing annotations:
+Five important Junit annotations:
+@Test ::  Each and every test method needs to be marked with this
+@Before: Used to mark our setup methods and all the data we want to setup for a particular test
+Any method marked with @Before will be run before each test method.
+@After : Similar to before, this is run after every test
+@BeforeClass: Only once per entire test class at the beginning
+@Ignore:If you mark use these the tests will be ignored, this is typically used to ignore some tests which might fail after some code changes, we do that so our build will pass, we can come back later, fix them and ignore them later.
+Assert methods:
+These are used to assert results against actual results
+Sample methods:
+
+assertNotNull: will take an object and check if the objects is not null
+assertEquals : checks if the result is equal to expected result
+assertSame: checks for the references of two objects.
+Difference between two assertEquals uses equals() method (that you should override in your class to really compare its instances) to compare objects, while assertSame uses == operator to compare them. So the difference is exactly the same as between == (compare by value) and equals (compare identity).
+assertThat : Asserts that actual satisfies the condition specified by matcher, the matcher explanation will come up later in this wiki.
+.... there are many more https://junit.org/junit4/javadoc/4.12/org/junit/Assert.html
+
+Running the tests
+BlockJunit4ClassRunner.class >> when you are running with command line
+@RunWith(SpringJUnit4ClassRunner.class) >> when you are running spring code
+
+So to write the Test we need to use @Test annotation
+@Test
+public void testShouldPass(){
+}
+When you are testing that an exception is thrown or not:
+@Test(expected = IllegalArgumentException.class)
+public void exceptionTestShouldPass(){
+}
+
+Using @Before
+@Before
+public void setup(){
+myObject = new MyObjectImpl();
+}
+//So before every test setup method will run
+@After : will run after every test, usually used to clean up data after each test
+public void teardown(){
+myObject = null;
+}
+
+Mocking: 
+To mock means to mimic, example if class A depends on class B, then we will mock out class B, the mock object will then take place of real object of class B, the idea is to have each unit be tested on its own.
+
+Mockito is a mocking framework that can be used here:
+We can use Stubs and set expectations. For this purpose we can use @Mock annotation, we can use following methods to set expectations when,thenReturn,thenThrow for all the methods on dependent classes. Finally, we can verify if the mocked out methods are being called out using matchers etc.
+
+Usually mocking invloves three steps:
+1.Stubbing 2. Setting Expectations 3. Verification
+
+The assumption of mocking is each Unit is tested in isolation.
+import static org.mockito.Mockito.*;
+public class OrderBoImpl{
+@Mock
+OrderDAO orderDao;
+@Before
+public void setup(){
+//This will help us create mock objects before every test
+MockitoAnnotations.initMocks(this);
+}
+@Test
+public void placeOrderShouldCreateAnOrder throws SQLException {
+//These can go in setup method-----
+OrderBoImpl bo = new OrderBoImpl();
+bo.setDao(orderDao);
+//-------------------------------
+Order order=new Order();
+//when is used to stub out method calls on mocked object, we are setting expectations here
+when(dao.create(order)).thenReturn(new 
+Integer(1));
+boolean result = bo.placeOrder(order);
+assertTrue(result);
+verify(dao).create(order); // is used to test our mocked out method is getting called, by default it verifies the method we are asking it to verify is called once
+}
+//Testing Exceptions in mocks
+@Test(expected = BOException.class) // Expected is responsible for assertion
+public void placeOrderShouldThrowBOException() throws SQLException, BOException{
+//These can go in setup method-----
+OrderBoImpl bo = new OrderBoImpl();
+bo.setDao(orderDao);
+//-------------------------------
+Order order = new Order();
+when(dao.create(order)).thenThrow(SQLException.class); //Then Throw method is important here
+boolean result = bo.placeOrder(order);
+}
+//This test shows how to call two related methods
+@Test
+public void cancelOrderShouldCancelTheOrder() throws SQLException, BOException{
+Order order = new Order();
+when(dao.read(123)).thenReturn(order);
+when(dao.update(order)).thenReturn(order);
+boolean result = bo.cancelOrder(123);
+assertTrue(result);
+verify(dao).read(123);
+verify(dao).updat(order);
+}
+}
+More into Mockito
+verify(dao, times(2)).create(order); //this will check if the create order method is called twice in the test. //If not it will throw two little actual Invocation exception
+verify(dao, atLeast(2)).create(order); //this will check if the create order method is called atLeast twice in the test. //If not it will throw two little actual Invocation exception
+Matchers
+Are convenient way to provide stubs to mocked objects
+For example:
+when(dao.create(any(Order.class))).thenReturn(new Integer(1));
+Here we are telling mockito we don't care about the Order object as long as we can get Object of order class.
+
+How to stub void methods using Mockito:
+Suppose you have class A it has usesVoidMethod → this uses class B's void method
+
+public class A {
+private B b;
+public A(B b){
+this.b=b;
+}
+public int usesVoidMethod(){
+b.voidMethod();
+} catch(Exception e){
+new RunTimeException(e);
+}
+return 0;
+}
+public class B {
+public void voidmethod() throws Exception {
+}
+}
+public class ATest {
+@Mock
+B b;
+private A a;
+@Before
+public void setup {
+MockitoAnnotations.initMocks(this);
+a = new A(b);
+}
+@Test
+public void usesVoidMethodShouldCallVoidMethod() throws Exception {
+assertEquals(1,a.usesVoidMethod());
+verify(b).voidMethod();
+}
+Tip: Although not required but if you want to explicitly stub out void method:
+//---
+doNothing().when(b).voidMethod();
+//One of the scenarios where you would like to use doNothing is when you want to test consecutive calls
+doNothing().doThrow(Exception.class).when(b).voidmethod();
+here the second call to void method willThrowException
+//----
+If you want to throw Exception from Void
+doThrow(Exception.class).when(b).voidmethod();
+}
+
+Best Practices of Junit Testing:
+F.I.R.S.T Principle:
+>> Fast - Test should run in milli seconds
+>> Independent - Test should be independent, should not depend on other test method for data
+>> Repeatable - We should be able to run across environment
+>> Self-Validating - Test should either fail / pass , that is should be boolean
+>> Timely - Write tests with code. Don't be Lazy.
+Test Doubles:
+>> These are unit testing design patterns
+>> Dummy - These are the objects, that are passed as parameters but are not really required to test >> check when we used any above. We don't care about exact object
+>> Stubs - These provide fixed answer, they will do what we ask them to do.
+>> Mocks - They can throw exceptions as well as allow us to verify if certain other methods are called.
+>> Fake - Some shortcuts, like inmemory databases, they are rarely used
+>> Spies - they are stubs used for partial mocking, Spy is going to use real object unless we stub out something.
+Here we use @Spy
+Also like before do the setup
+Here we can't use when to stub out. We need to use doReturn.
+
+So in @Mock it is mockito's own version of object and nothing happens unless we stub out a call.
+So, just to avoid spy what you can do is call thenCallRealMethod(), So in this way you can use partial mocking with @Mock itself
+
+Parameterized Junits
+>> You can have different data in Junits.
+>> Instead of writing multiple test for one single method, we can provide different input and output datasets
+>> Steps
+>> Identify Input Data and Results
+>> Create Fields in test Class
+>> Create a constructor
+>> Create a static method
+>> We can use @Parameters to provide parameters
+>> Create or update the Test Method // Instead of hard coding values
+>> Mark the test with @RunWith(Parameterized.class)
+Example
+@RunWith(Parameterized.class)
+public class additionTest {
+private int num1;
+private int num2;
+private int expectedResult;
+public AdditionImpl(int num1,int num2, int result){
+this.num1=num1;
+this.num2=num2;
+this.result=result;
+}
+@Parameters
+public static Collections<Integer> data(){
+//This allows us to run three tests with given input/output data, example num1=-1, num2=2, result=1
+return Arrays.asList(new Integer[][] {{-1,2,1},{1,2,3},{6,7,13}});
+}
+@Test
+public void addShouldReturnResult(){
+Addition addClass = new AdditionImpl();
+int result = addClass.add(num1,num2);
+assertEquals(expectedResult, result);
+}
+}
+
+So How is the Parameterized magic happening?
+Parameterized class knows how to invoke static method marked with @Parameters annotation and it gets the dataset and then uses dataset to create instance of class, by calling constructor.
+What are the Limitations with Mockito??
+Mockito can't mock >> Static, final, Constructors, Private, constructors,, Enums
+So how to solve for these:
+We need to use PowerMock
+It uses ByteCodeManipulation, and customClassLoader, which helps us do what Mockito cannot do, PowerMock is built on extending Mockito.
+Steps to run PowerMock
+@RunWith(PowerMockRunner.class)
+@PrepareForTest(IDGenerator.class)
+public class DAOtest{
+}
+2. import static org.powermock.api.mockito.PowerMockito.*;
+3. @Test
+4. public void createShouldReturnAUserId(){
+UserDAO dao = new UserDAO();
+mockStatic(IDGenerator.class);
+when(IDGenerator.generateID()).thenReturn(1);
+int result = dao.create(new User());
+assertEquals(1,result);
+}
+5. When you run Junit runner delegates it to powerMockRunner, which mocks the static method. 
+What else you need to know?
+May be you can also understand about @injectMocks Annotation, so this is used if you want an impl class setter methods are stubbed by  the @Mock object you have defined in your test
+Say For example:
+
+@Mock
+Order order;
+@Autowired
+@InjectMocks
+OrderClassImpl orderClassImpl;
+
+Say if orderClassImpl has any setter method that is using order, then they will be set by the Mockito mock mentioned in test case.
+How to mock method of another class while writing Junit for your class without using PowerMock?
+This is really interesting solution : https://stackoverflow.com/a/30122443
+
+What are various Code Coverage tools available??
+EclEmma → uses Jacoco, 
+JTools
+Cobertura
+Notes:
+Also please go through following blog from Misko on how to keep your code testable. Writing Testable Code (if this link becomes inactive following is pdfbook Writing Testable Code )
+
+References: This tutorial is based on udemy Junit course.
