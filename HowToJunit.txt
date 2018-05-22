@@ -1,3 +1,8 @@
+Useful links
+https://stackoverflow.com/questions/30122354/mock-a-method-call-from-another-class/30122443#30122443
+http://misko.hevery.com/code-reviewers-guide/
+https://junit.org/junit4/javadoc/4.12/org/junit/Assert.html
+
 Reference Links:
 
 (This is work in progress. For anyone, new to unit testing, so that we can maintain quality code)
